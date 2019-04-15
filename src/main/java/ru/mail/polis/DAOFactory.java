@@ -23,9 +23,9 @@ import java.io.File;
 import ru.mail.polis.inmem.HisLovelyDAO;
 
 /**
- * Custom {@link DAO} factory
+ * Custom {@link DAO} factory.
  *
- * @author Vadim Tsesko <incubos@yandex.com>
+ * @author incubos
  */
 public final class DAOFactory {
     static final long MAX_HEAP = 128 * 1024 * 1024;

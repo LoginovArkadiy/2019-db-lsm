@@ -26,14 +26,17 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Storage interface
+ * Storage interface.
  *
- * @author Vadim Tsesko <incubos@yandex.com>
+ * @author incubos
  */
 public interface DAO extends Closeable {
     @NotNull
     Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
 
+    /**
+     * Get {@link Iterator} of {@link Record}s with keys between {@code from} inclusive and {@code to} exclusive.
+     */
     @NotNull
     default Iterator<Record> range(
             @NotNull ByteBuffer from,
@@ -49,9 +52,12 @@ public interface DAO extends Closeable {
         final Record bound = new Record(to, ByteBuffer.allocate(0));
         return Iters.until(iterator(from), bound);
     }
-    
+
+    /**
+     * Get value for the {@code key} or {@link NoSuchElementException} if no value present.
+     */
     @NotNull
-    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException {
+    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Not found");
