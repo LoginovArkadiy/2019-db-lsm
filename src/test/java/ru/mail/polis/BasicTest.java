@@ -99,8 +99,7 @@ class BasicTest extends TestBase {
         final Iterator<Map.Entry<ByteBuffer, ByteBuffer>> expectedIter = map.entrySet().iterator();
         final Iterator<Record> actualIter = dao.iterator(map.firstKey());
         while (expectedIter.hasNext()) {
-            final Map.Entry<ByteBuffer, ByteBuffer> expected;
-            expected = expectedIter.next();
+            final Map.Entry<ByteBuffer, ByteBuffer> expected = expectedIter.next();
             final Record actual = actualIter.next();
             final ByteBuffer expectedKey = expected.getKey();
             final ByteBuffer actualKey = actual.getKey();
