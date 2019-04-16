@@ -15,17 +15,17 @@ public class HisLovelyDAO implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         return map.tailMap(from).values().iterator();
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         map.put(key, Record.of(key, value));
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) {
         map.remove(key);
     }
 
