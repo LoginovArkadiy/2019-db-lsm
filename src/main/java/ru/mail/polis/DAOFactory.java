@@ -19,8 +19,9 @@ package ru.mail.polis;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.io.IOException;
 
-import ru.mail.polis.inmem.HisLovelyDAO;
+import ru.mail.polis.persistence.LSMDao;
 
 /**
  * Custom {@link DAO} factory.
@@ -41,7 +42,7 @@ public final class DAOFactory {
      * @return a storage instance
      */
     @NotNull
-    static DAO create(@NotNull final File data) {
+    static DAO create(@NotNull final File data) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -54,6 +55,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new HisLovelyDAO();
+        return new LSMDao(data, MAX_HEAP / 2);
     }
 }
