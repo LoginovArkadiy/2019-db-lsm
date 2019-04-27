@@ -21,9 +21,9 @@ import ru.mail.polis.Iters;
 import ru.mail.polis.Record;
 
 public class LSMDao implements DAO {
-    public static final String TABLE_NAME = "SSTable";
-    public static final String SUFFIX = ".dat";
-    public static final String TEMP = ".tmp";
+    private static final String TABLE_NAME = "SSTable";
+    private static final String SUFFIX = ".dat";
+    private static final String TEMP = ".tmp";
 
     private Table memTable = new MemTable();
     private final long flushThreshold;
@@ -67,20 +67,16 @@ public class LSMDao implements DAO {
         final Iterator<Cell> cells = memTable.iterator(from);
         list.add(cells);
 
-        Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
-        Iters.collapseEquals(iterator);
+        final Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
 
         final Iterator<Cell> alive =
                 Iterators.filter(
                         iterator,
-                        cell -> cell == null || !cell.getValue().isRemoved());
+                        cell -> !cell.getValue().isRemoved());
 
         return Iterators.transform(
-                alive,
-                cell -> {
-                    assert cell != null;
-                    return Record.of(cell.getKey(), cell.getValue().getData());
-                });
+                Iters.collapseEquals(alive),
+                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
     @Override

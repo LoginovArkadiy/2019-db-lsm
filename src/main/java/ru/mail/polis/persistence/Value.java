@@ -35,7 +35,7 @@ public class Value implements Comparable<Value> {
 
     @Override
     public int compareTo(@NotNull Value o) {
-        return -Long.compare(ts, o.ts);
+        return Long.compare(o.ts, ts);
     }
 
     public long getTimeStamp() {
