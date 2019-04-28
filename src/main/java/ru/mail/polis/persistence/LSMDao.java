@@ -9,6 +9,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -69,7 +70,7 @@ public class LSMDao implements DAO {
 
         Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
 
-        iterator = Iters.collapseEquals(iterator);
+        iterator = Iters.collapseEquals(iterator, Cell::getKey);
 
         final Iterator<Cell> alive =
                 Iterators.filter(
