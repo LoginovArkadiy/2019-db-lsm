@@ -67,7 +67,9 @@ public class LSMDao implements DAO {
         final Iterator<Cell> cells = memTable.iterator(from);
         list.add(cells);
 
-        final Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
+        Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
+
+        iterator = Iters.collapseEquals(iterator);
 
         final Iterator<Cell> alive =
                 Iterators.filter(
@@ -75,7 +77,7 @@ public class LSMDao implements DAO {
                         cell -> !cell.getValue().isRemoved());
 
         return Iterators.transform(
-                Iters.collapseEquals(alive),
+                alive,
                 cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
