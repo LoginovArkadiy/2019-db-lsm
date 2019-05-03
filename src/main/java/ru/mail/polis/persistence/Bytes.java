@@ -6,15 +6,11 @@ class Bytes {
 
     static ByteBuffer fromInt(final int value) {
         final ByteBuffer result = ByteBuffer.allocate(Integer.BYTES);
-        result.putInt(value);
-        result.rewind();
-        return result;
+        return result.putInt(value).rewind();
     }
 
     static ByteBuffer fromLong(final long value) {
         final ByteBuffer result = ByteBuffer.allocate(Long.BYTES);
-        result.putLong(value);
-        result.rewind();
-        return result;
+        return result.putLong(value).rewind();
     }
 }

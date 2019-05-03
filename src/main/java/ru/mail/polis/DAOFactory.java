@@ -28,7 +28,7 @@ import ru.mail.polis.persistence.LSMDao;
  *
  * @author Vadim Tsesko
  */
-public final class DAOFactory {
+final class DAOFactory {
     static final long MAX_HEAP = 128 * 1024 * 1024;
 
     private DAOFactory() {
@@ -55,6 +55,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new LSMDao(data, MAX_HEAP / 2);
+        return new LSMDao(data, MAX_HEAP / 4);
     }
 }

@@ -3,7 +3,6 @@ package ru.mail.polis.persistence;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.LongBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
@@ -24,15 +23,18 @@ public class FileTable implements Table {
     private final ByteBuffer cells;
     private final File file;
 
-    public FileTable(final File file) throws IOException {
+
+    FileTable(final File file) throws IOException {
         this.file = file;
         final long fileSize = file.length();
-        final ByteBuffer mapped;
+        final ByteBuffer mapped = ByteBuffer.allocate((int) fileSize);
         try (FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
             assert fileSize <= Integer.MAX_VALUE;
-            mapped = fc.map(FileChannel.MapMode.READ_ONLY, 0L, fileSize).order(ByteOrder.BIG_ENDIAN);
-        }
+            int size = fc.read(mapped);
 
+//            mapped = fc.map(FileChannel.MapMode.READ_ONLY, 0L, fileSize).order(ByteOrder.BIG_ENDIAN);
+        }
+        int limit = mapped.limit();
         // Rows
         final long rowsValue = mapped.getLong((int) (fileSize - Long.BYTES));
         assert rowsValue <= Integer.MAX_VALUE;
@@ -40,18 +42,19 @@ public class FileTable implements Table {
 
         // Offset
         final ByteBuffer offsetBuffer = mapped.duplicate();
-        offsetBuffer.position(mapped.limit() - Long.BYTES * rows - Long.BYTES);
-        offsetBuffer.limit(mapped.limit() - Long.BYTES);
+        offsetBuffer.position(limit - Long.BYTES * rows - Long.BYTES);
+        offsetBuffer.limit(limit - Long.BYTES);
         this.offsets = offsetBuffer.slice().asLongBuffer();
 
         // Cells
         final ByteBuffer cellBuffer = mapped.duplicate();
+        cellBuffer.position(0);
         cellBuffer.limit(offsetBuffer.position());
         this.cells = cellBuffer.slice();
     }
 
     static void write(final Iterator<Cell> cells, final File to) throws IOException {
-        try (FileChannel fc = FileChannel.open(to.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+        try (FileChannel fc = FileChannel.open(to.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
             final List<Long> offsets = new ArrayList<>();
             long offset = 0;
             while (cells.hasNext()) {
@@ -82,7 +85,7 @@ public class FileTable implements Table {
 
                 if (!value.isRemoved()) {
                     final ByteBuffer valueData = value.getData();
-                    final int valueSize = value.getData().remaining();
+                    final int valueSize = valueData.remaining();
                     fc.write(Bytes.fromInt(valueSize));
                     offset += Integer.BYTES;
                     fc.write(valueData);
@@ -91,23 +94,25 @@ public class FileTable implements Table {
 
             }
             // Offsets
-            for (final Long anOffset : offsets) {
+            for (long anOffset : offsets) {
                 fc.write(Bytes.fromLong(anOffset));
             }
 
-            //Cells
+            //rows
             fc.write(Bytes.fromLong(offsets.size()));
         }
     }
 
     private ByteBuffer keyAt(final int i) {
         assert 0 <= i && i < rows;
-        final long offset = offsets.get(i);
+        long offset = offsets.get(i);
         assert offset <= Integer.MAX_VALUE;
         final int keySize = cells.getInt((int) offset);
+        offset += Integer.BYTES;
         final ByteBuffer key = cells.duplicate();
-        key.position((int) (offset + Integer.BYTES));
-        key.limit(key.position() + keySize);
+        key.position((int) offset);
+        offset += keySize;
+        key.limit((int) offset);
         return key.slice();
     }
 
@@ -119,9 +124,8 @@ public class FileTable implements Table {
         //Key
         final int keySize = cells.getInt((int) offset);
         offset += Integer.BYTES;
-        final ByteBuffer key = cells.duplicate();
-        key.position((int) (offset + Integer.BYTES));
-        key.limit(key.position() + keySize);
+        ByteBuffer key = cells.duplicate();
+        key = key.position((int) offset).limit((int) (offset + keySize)).slice();
         offset += keySize;
 
         //Timestamp
@@ -129,14 +133,15 @@ public class FileTable implements Table {
         offset += Long.BYTES;
 
         if (timeStamp < 0) {
-            return new Cell(key.slice(), new Value(-timeStamp, null));
+            return new Cell(key, Value.tombstone(-timeStamp));
         } else {
             final int valueSize = cells.getInt((int) offset);
             offset += Integer.BYTES;
             final ByteBuffer value = cells.duplicate();
             value.position((int) offset);
-            value.limit(value.position() + valueSize);
-            return new Cell(key.slice(), new Value(timeStamp, value.slice()));
+            offset += valueSize;
+            value.limit((int) offset);
+            return new Cell(key, Value.of(timeStamp, value.slice()));
         }
     }
 
@@ -149,7 +154,7 @@ public class FileTable implements Table {
             if (cmp < 0) {
                 right = mid - 1;
             } else if (cmp > 0) {
-                left = mid - 1;
+                left = mid + 1;
             } else {
                 return mid;
             }
@@ -206,7 +211,7 @@ public class FileTable implements Table {
         return merge(list);
     }
 
-    public static int getGenerationByName(String name) {
+    static int getGenerationByName(String name) {
         int index = name.lastIndexOf(".");
         name = name.substring(0, index);
         index = name.length();
@@ -217,12 +222,17 @@ public class FileTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
         throw new UnsupportedOperationException("");
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) throws IOException {
+    public void remove(@NotNull ByteBuffer key) {
+        throw new UnsupportedOperationException("");
+    }
+
+    @Override
+    public void clear() {
         throw new UnsupportedOperationException("");
     }
 

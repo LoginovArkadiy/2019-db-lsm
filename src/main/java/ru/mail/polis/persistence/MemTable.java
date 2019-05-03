@@ -48,10 +48,14 @@ public class MemTable implements Table {
         final Value previous = map.put(key, Value.tombstone());
         if (previous == null) {
             sizeInBytes += key.remaining();
-        } else if (previous.isRemoved()) {
-            //Do nothing
-        } else {
+        } else if (!previous.isRemoved()) {
             sizeInBytes -= previous.getData().remaining();
         }
+    }
+
+    @Override
+    public void clear() {
+        map.clear();
+        sizeInBytes = 0;
     }
 }

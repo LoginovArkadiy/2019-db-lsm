@@ -9,7 +9,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,10 +59,9 @@ public class LSMDao implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException {
-        List<Iterator<Cell>> list = fileTables.stream()
-                .map(table -> table.iterator(from))
-                .collect(Collectors.toList());
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
+        final List<Iterator<Cell>> list = new ArrayList<>(fileTables.size() + 1);
+        fileTables.forEach(fileTable -> list.add(fileTable.iterator(from)));
 
         final Iterator<Cell> cells = memTable.iterator(from);
         list.add(cells);
@@ -75,16 +73,20 @@ public class LSMDao implements DAO {
         final Iterator<Cell> alive =
                 Iterators.filter(
                         iterator,
-                        cell -> !cell.getValue().isRemoved());
+                        cell -> cell == null || cell.getValue() == null || !cell.getValue().isRemoved());
 
         return Iterators.transform(
                 alive,
-                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
+                cell -> {
+                    assert cell != null && cell.getKey() != null;
+                    return Record.of(cell.getKey(), cell.getValue().getData());
+                });
     }
 
+
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
-        memTable.upsert(key, value);
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+        memTable.upsert(key.duplicate(), value);
         if (memTable.sizeInBytes() > flushThreshold) {
             flush();
             readFiles();
@@ -93,7 +95,7 @@ public class LSMDao implements DAO {
 
     private void flush() throws IOException {
         flush(memTable.iterator(ByteBuffer.allocate(0)), generation++);
-        memTable = new MemTable();
+        memTable.clear();
     }
 
     private void flush(Iterator<Cell> iterator, int generation) throws IOException {
@@ -101,20 +103,23 @@ public class LSMDao implements DAO {
         FileTable.write(iterator, tmp);
         final File dest = new File(base, TABLE_NAME + generation + SUFFIX);
         Files.move(tmp.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+//        final File tmp = new File(base, TABLE_NAME + generation + SUFFIX);
+//        FileTable.write(iterator, tmp);
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         memTable.remove(key);
     }
 
     private void mergeTables(int from, int to) throws IOException {
-        List<FileTable> files = fileTables.subList(from, to);
+        List<FileTable> mergeFiles = fileTables.subList(from, to);
         fileTables = fileTables.subList(0, from);
 
-        Iterator<Cell> mergeIterator = FileTable.merge(files);
+        Iterator<Cell> mergeIterator = FileTable.merge(mergeFiles);
         int generation = -1;
-        for (FileTable table : files) {
+        for (FileTable table : mergeFiles) {
             File file = table.getFile();
             String name = file.getName();
             generation = Math.max(generation, FileTable.getGenerationByName(name));
@@ -125,12 +130,9 @@ public class LSMDao implements DAO {
         }
     }
 
-
     @Override
     public void close() throws IOException {
         flush();
-//        mergeTables(fileTables.size() / 2, fileTables.size());
+        mergeTables(fileTables.size() / 2, fileTables.size());
     }
-
-
 }

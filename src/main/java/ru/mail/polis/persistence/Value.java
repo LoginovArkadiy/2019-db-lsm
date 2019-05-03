@@ -8,7 +8,7 @@ public class Value implements Comparable<Value> {
     private final long ts;
     private final ByteBuffer data;
 
-    public Value(final long ts, final ByteBuffer data) {
+    private Value(final long ts, final ByteBuffer data) {
         assert (ts >= 0);
         this.ts = ts;
         this.data = data;
@@ -18,15 +18,23 @@ public class Value implements Comparable<Value> {
         return new Value(System.currentTimeMillis(), data.duplicate());
     }
 
-    public static Value tombstone() {
-        return new Value(System.currentTimeMillis(), null);
+    public static Value of(final long time, final ByteBuffer data) {
+        return new Value(time, data.duplicate());
     }
 
-    public boolean isRemoved() {
+    static Value tombstone() {
+        return tombstone(System.currentTimeMillis());
+    }
+
+    static Value tombstone(long time) {
+        return new Value(time, null);
+    }
+
+    boolean isRemoved() {
         return data == null;
     }
 
-    public ByteBuffer getData() {
+    ByteBuffer getData() {
         if (data == null) {
             throw new IllegalArgumentException("");
         }
@@ -38,7 +46,7 @@ public class Value implements Comparable<Value> {
         return Long.compare(o.ts, ts);
     }
 
-    public long getTimeStamp() {
+    long getTimeStamp() {
         return ts;
     }
 }
