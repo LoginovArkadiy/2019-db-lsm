@@ -32,7 +32,7 @@ public class LSMDao implements DAO {
     private List<FileChannelTable> fileTable1s;
 
     /**
-     *NoSql Dao
+     * NoSql Dao.
      *
      * @param base           directory of DB
      * @param flushThreshold maxsize of @memTable
@@ -56,7 +56,8 @@ public class LSMDao implements DAO {
                 try {
                     final FileChannelTable fileChannelTable = new FileChannelTable(file);
                     fileTable1s.add(fileChannelTable);
-                    currentGeneration = Math.max(currentGeneration, FileChannelTable.getGenerationByName(file.getName()));
+                    currentGeneration = Math.max(currentGeneration,
+                            FileChannelTable.getGenerationByName(file.getName()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

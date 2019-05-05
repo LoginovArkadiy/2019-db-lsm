@@ -6,7 +6,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -23,7 +22,7 @@ public class FileChannelTable implements Table {
     private final File file;
 
     /**
-     *Sorted String Table, which use FileChannel for Read_and_Write operations
+     * Sorted String Table, which use FileChannel for Read_and_Write operations.
      * @param file of this table
      * @throws IOException when file is't exist
      */
@@ -93,7 +92,7 @@ public class FileChannelTable implements Table {
     }
 
     /**
-     *Merge list of SSTables
+     * Merge list of SSTables.
      *
      * @param tables list of SSTables
      * @return MergedIterator with latest versions of key-value
