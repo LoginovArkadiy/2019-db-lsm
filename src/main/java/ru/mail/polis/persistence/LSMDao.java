@@ -70,7 +70,7 @@ public class LSMDao implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> list = new ArrayList<>(fileTables.size() + 1);
-        for (FileChannelTable fileChannelTable : fileTables) {
+        for (final FileChannelTable fileChannelTable : fileTables) {
             list.add(fileChannelTable.iterator(from));
         }
         final Iterator<Cell> memoryIterator = memTable.iterator(from);

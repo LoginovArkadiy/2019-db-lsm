@@ -56,12 +56,12 @@ public class FileChannelTable implements Table {
 
                 final Value value = cell.getValue();
 
-                int size = Integer.BYTES
+                final int bufferSize = Integer.BYTES
                         + key.remaining()
                         + Long.BYTES
                         + (value.isRemoved() ? 0 : Integer.BYTES + value.getData().remaining());
 
-                final ByteBuffer buffer = ByteBuffer.allocate(size);
+                final ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
                 buffer.putInt(keySize).put(key);
 
                 // Timestamp
@@ -78,7 +78,7 @@ public class FileChannelTable implements Table {
                     buffer.putInt(valueSize).put(valueData);
                 }
                 fc.write(buffer.flip());
-                offset += size;
+                offset += bufferSize;
             }
             // Offsets
             for (final long anOffset : offsets) {
@@ -101,7 +101,7 @@ public class FileChannelTable implements Table {
             return new ArrayList<Cell>().iterator();
         }
         final List<Iterator<Cell>> list = new ArrayList<>(tables.size());
-        for (FileChannelTable table : tables) {
+        for (final FileChannelTable table : tables) {
             list.add(table.iterator(ByteBuffer.allocate(0)));
         }
         return Iters.collapseEquals(Iterators.mergeSorted(list, Cell.COMPARATOR));
