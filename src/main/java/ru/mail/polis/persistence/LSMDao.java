@@ -29,7 +29,7 @@ public class LSMDao implements DAO {
     private final long flushThreshold;
     private final File base;
     private int generation;
-    private List<FileTable> fileTables;
+    private List<FileChannelTable> fileTable1s;
 
     public LSMDao(final File base, final long flushThreshold) throws IOException {
         this.base = base;
@@ -41,15 +41,14 @@ public class LSMDao implements DAO {
     private void readFiles() throws IOException {
         Stream<Path> stream = Files.walk(base.toPath(), 1).filter(path -> path.getFileName().toString().endsWith(SUFFIX));
         final List<Path> files = stream.collect(Collectors.toList());
-
-        fileTables = new ArrayList<>(files.size());
+        fileTable1s = new ArrayList<>(files.size());
         generation = -1;
         files.forEach(path -> {
             File file = path.toFile();
             try {
-                FileTable fileTable = new FileTable(file);
-                fileTables.add(fileTable);
-                generation = Math.max(generation, FileTable.getGenerationByName(file.getName()));
+                FileChannelTable fileChannelTable = new FileChannelTable(file);
+                fileTable1s.add(fileChannelTable);
+                generation = Math.max(generation, FileMapTable.getGenerationByName(file.getName()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -60,8 +59,8 @@ public class LSMDao implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        final List<Iterator<Cell>> list = new ArrayList<>(fileTables.size() + 1);
-        fileTables.forEach(fileTable -> list.add(fileTable.iterator(from)));
+        final List<Iterator<Cell>> list = new ArrayList<>(fileTable1s.size() + 1);
+        fileTable1s.forEach(fileChannelTable -> list.add(fileChannelTable.iterator(from)));
 
         final Iterator<Cell> cells = memTable.iterator(from);
         list.add(cells);
@@ -86,6 +85,7 @@ public class LSMDao implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+        System.gc();
         memTable.upsert(key.duplicate(), value);
         if (memTable.sizeInBytes() > flushThreshold) {
             flush();
@@ -98,14 +98,11 @@ public class LSMDao implements DAO {
         memTable.clear();
     }
 
-    private void flush(Iterator<Cell> iterator, int generation) throws IOException {
+    private void flush(final Iterator<Cell> iterator, int generation) throws IOException {
         final File tmp = new File(base, TABLE_NAME + generation + TEMP);
-        FileTable.write(iterator, tmp);
+        FileChannelTable.write(iterator, tmp);
         final File dest = new File(base, TABLE_NAME + generation + SUFFIX);
         Files.move(tmp.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
-
-//        final File tmp = new File(base, TABLE_NAME + generation + SUFFIX);
-//        FileTable.write(iterator, tmp);
     }
 
     @Override
@@ -114,15 +111,15 @@ public class LSMDao implements DAO {
     }
 
     private void mergeTables(int from, int to) throws IOException {
-        List<FileTable> mergeFiles = fileTables.subList(from, to);
-        fileTables = fileTables.subList(0, from);
-
-        Iterator<Cell> mergeIterator = FileTable.merge(mergeFiles);
+        List<FileChannelTable> mergeFiles = fileTable1s.subList(from, to);
+        fileTable1s = fileTable1s.subList(0, from);
+        Iterator<Cell> mergeIterator = FileChannelTable.merge(mergeFiles);
         int generation = -1;
-        for (FileTable table : mergeFiles) {
+        for (FileChannelTable table : mergeFiles) {
             File file = table.getFile();
             String name = file.getName();
-            generation = Math.max(generation, FileTable.getGenerationByName(name));
+            generation = Math.max(generation, FileMapTable.getGenerationByName(name));
+//            Files.delete(file.toPath());
         }
 
         if (generation >= 0) {
@@ -133,6 +130,6 @@ public class LSMDao implements DAO {
     @Override
     public void close() throws IOException {
         flush();
-        mergeTables(fileTables.size() / 2, fileTables.size());
+        mergeTables(fileTable1s.size() / 2, fileTable1s.size());
     }
 }
