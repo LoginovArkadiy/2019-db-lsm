@@ -75,7 +75,6 @@ public interface DAO extends Closeable {
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Not found");
         }
-
         final Record next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();

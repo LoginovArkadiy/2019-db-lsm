@@ -1,12 +1,15 @@
 package ru.mail.polis.persistence;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jetbrains.annotations.NotNull;
 
 public final class Value implements Comparable<Value> {
     private final long ts;
     private final ByteBuffer data;
+    private static AtomicInteger nano = new AtomicInteger();
+    private static long preTime = 0;
 
     private Value(final long ts, final ByteBuffer data) {
         assert ts >= 0;
@@ -15,7 +18,12 @@ public final class Value implements Comparable<Value> {
     }
 
     public static Value of(final ByteBuffer data) {
-        return new Value(System.currentTimeMillis(), data.duplicate());
+        long time = System.currentTimeMillis() * 1_000 + nano.incrementAndGet();
+        if (time - preTime > 1) {
+            nano.set(0);
+        }
+        preTime = time;
+        return new Value(System.currentTimeMillis() * 1_000_000 + nano.incrementAndGet(), data.duplicate());
     }
 
     public static Value of(final long time, final ByteBuffer data) {

@@ -23,6 +23,7 @@ public class FileChannelTable implements Table {
 
     /**
      * Sorted String Table, which use FileChannel for Read_and_Write operations.
+     *
      * @param file of this table
      * @throws IOException when file is't exist
      */
@@ -50,37 +51,35 @@ public class FileChannelTable implements Table {
                 offsets.add(offset);
 
                 final Cell cell = cells.next();
-                // Key
                 final ByteBuffer key = cell.getKey();
                 final int keySize = cell.getKey().remaining();
-                fc.write(Bytes.fromInt(keySize));
-                offset += Integer.BYTES;
-                fc.write(key);
-                offset += keySize;
 
-                // Value
                 final Value value = cell.getValue();
+
+                int size = Integer.BYTES
+                        + key.remaining()
+                        + Long.BYTES
+                        + (value.isRemoved() ? 0 : Integer.BYTES + value.getData().remaining());
+
+                final ByteBuffer buffer = ByteBuffer.allocate(size);
+                buffer.putInt(keySize).put(key);
 
                 // Timestamp
                 if (value.isRemoved()) {
-                    fc.write(Bytes.fromLong(-cell.getValue().getTimeStamp()));
+                    buffer.putLong(-cell.getValue().getTimeStamp());
                 } else {
-                    fc.write(Bytes.fromLong(cell.getValue().getTimeStamp()));
+                    buffer.putLong(cell.getValue().getTimeStamp());
                 }
-                offset += Long.BYTES;
 
                 // Value
                 if (!value.isRemoved()) {
                     final ByteBuffer valueData = value.getData();
                     final int valueSize = valueData.remaining();
-                    fc.write(Bytes.fromInt(valueSize));
-                    offset += Integer.BYTES;
-                    fc.write(valueData);
-                    offset += valueSize;
+                    buffer.putInt(valueSize).put(valueData);
                 }
-
+                fc.write(buffer.flip());
+                offset += size;
             }
-
             // Offsets
             for (final long anOffset : offsets) {
                 fc.write(Bytes.fromLong(anOffset));
@@ -102,10 +101,10 @@ public class FileChannelTable implements Table {
             return new ArrayList<Cell>().iterator();
         }
         final List<Iterator<Cell>> list = new ArrayList<>(tables.size());
-        tables.forEach(table -> list.add(table.iterator(ByteBuffer.allocate(0))));
-        Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
-        iterator = Iters.collapseEquals(iterator);
-        return iterator;
+        for (FileChannelTable table : tables) {
+            list.add(table.iterator(ByteBuffer.allocate(0)));
+        }
+        return Iters.collapseEquals(Iterators.mergeSorted(list, Cell.COMPARATOR));
     }
 
     public File getFile() {
@@ -212,7 +211,7 @@ public class FileChannelTable implements Table {
         int left = 0;
         int right = rows - 1;
         while (left <= right) {
-            final int mid = left + (right - left) / 2;
+            final int mid = left + ((right - left) >> 1);
             final int cmp = from.compareTo(keyAt(mid));
             if (cmp < 0) {
                 right = mid - 1;
@@ -226,13 +225,12 @@ public class FileChannelTable implements Table {
     }
 
     static int getGenerationByName(final String name) {
-        int index = name.lastIndexOf('.');
-        final String prePointName = name.substring(0, index);
-        index = prePointName.length();
-        while (index > 0 && Character.isDigit(prePointName.charAt(index - 1))) {
-            index--;
+        for (int index = 0; index < name.length(); index++) {
+            if (!Character.isDigit(name.charAt(index))) {
+                return index == 0 ? 0 : Integer.parseInt(name.substring(0, index));
+            }
         }
-        return Integer.parseInt(prePointName.substring(index));
+        return -1;
     }
 
     @Override

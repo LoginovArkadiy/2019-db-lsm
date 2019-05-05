@@ -55,6 +55,6 @@ final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new LSMDao(data, MAX_HEAP / 4);
+        return new LSMDao(data, MAX_HEAP / 12);
     }
 }
