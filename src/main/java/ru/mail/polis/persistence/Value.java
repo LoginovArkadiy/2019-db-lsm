@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 import org.jetbrains.annotations.NotNull;
 
-public class Value implements Comparable<Value> {
+public final class Value implements Comparable<Value> {
     private final long ts;
     private final ByteBuffer data;
 

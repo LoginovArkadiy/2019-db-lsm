@@ -18,46 +18,38 @@ import com.google.common.collect.Iterators;
 import ru.mail.polis.Iters;
 
 public class FileChannelTable implements Table {
+    private static final String UNSUPPORTED_EXCEPTION_MESSAGE = "FileTable has not access to update!";
     private final int rows;
     private final File file;
-//    private final BitSet filter;
-//    private final int filterSize;
 
+    /**
+     * Sorted String Table, which use FileChannel for Read_and_Write operations
+     *
+     * @param file of this table
+     * @throws IOException when file is't exist
+     */
     public FileChannelTable(File file) throws IOException {
         this.file = file;
-        try (FileChannel fc = openReadFileChannel()) {
+        try (final FileChannel fc = openReadFileChannel()) {
             //Rows
-            ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+            final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
             assert fc != null;
             fc.read(buffer, fc.size() - Long.BYTES);
 
             final long rowsValue = buffer.rewind().getLong();
             assert rowsValue <= Integer.MAX_VALUE;
             this.rows = (int) rowsValue;
-
-            //BloomFilter
-//            fc.read(buffer, fc.size() - Long.BYTES - Integer.BYTES);
-//            filterSize = buffer.rewind().getInt();
-//            fc.read(buffer, fc.size() - Long.BYTES - Integer.BYTES - Long.BYTES * filterSize);
-//            filter = new BitSet();
-//            LongBuffer buf = buffer.rewind().asLongBuffer();
-//
-//            for (int offset = buf.position(); offset < buf.limit(); offset += Long.BYTES) {
-//                filter.set((int) buf.get(offset));
-//            }
         }
     }
 
     static void write(final Iterator<Cell> cells, final File to) throws IOException {
-        try (FileChannel fc = FileChannel.open(to.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+        try (final FileChannel fc = FileChannel.open(to.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             final List<Long> offsets = new ArrayList<>();
             long offset = 0;
-            BitSet bloomFilter = new BitSet();
             while (cells.hasNext()) {
                 offsets.add(offset);
 
                 final Cell cell = cells.next();
-
                 // Key
                 final ByteBuffer key = cell.getKey();
                 final int keySize = cell.getKey().remaining();
@@ -65,9 +57,6 @@ public class FileChannelTable implements Table {
                 offset += Integer.BYTES;
                 fc.write(key);
                 offset += keySize;
-
-                //BloomFilter
-//                BloomFilter.setKeyToFilter(bloomFilter, key);
 
                 // Value
                 final Value value = cell.getValue();
@@ -81,7 +70,6 @@ public class FileChannelTable implements Table {
                 offset += Long.BYTES;
 
                 // Value
-
                 if (!value.isRemoved()) {
                     final ByteBuffer valueData = value.getData();
                     final int valueSize = valueData.remaining();
@@ -92,26 +80,28 @@ public class FileChannelTable implements Table {
                 }
 
             }
+
             // Offsets
             for (long anOffset : offsets) {
                 fc.write(Bytes.fromLong(anOffset));
             }
 
-//            long[] filterArray = bloomFilter.toLongArray();
-//            for (int i = 0; i < filterArray.length; i++) {
-//                fc.write(Bytes.fromLong(filterArray[i]));
-//            }
-//            fc.write(Bytes.fromInt(filterArray.length));
             //rows
             fc.write(Bytes.fromLong(offsets.size()));
         }
     }
 
-    public static Iterator<Cell> merge(List<FileChannelTable> tables) {
+    /**
+     * Merge list of SSTables
+     *
+     * @param tables list of SSTables
+     * @return MergedIterator with latest versions of key-value
+     */
+    public static Iterator<Cell> merge(final List<FileChannelTable> tables) {
         if (tables == null || tables.isEmpty()) {
             return new ArrayList<Cell>().iterator();
         }
-        List<Iterator<Cell>> list = new ArrayList<>(tables.size());
+        final List<Iterator<Cell>> list = new ArrayList<>(tables.size());
         tables.forEach(table -> list.add(table.iterator(ByteBuffer.allocate(0))));
         Iterator<Cell> iterator = Iterators.mergeSorted(list, Cell.COMPARATOR);
         iterator = Iters.collapseEquals(iterator);
@@ -131,13 +121,11 @@ public class FileChannelTable implements Table {
         return null;
     }
 
-    private long getOffset(FileChannel fc, int i) {
+    private long getOffset(final FileChannel fc, final int i) {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Long.BYTES);
         try {
             fc.read(offsetBB, fc.size()
                     - Long.BYTES
-//                    - Integer.BYTES
-//                    - Long.BYTES * filterSize
                     - Long.BYTES * rows
                     + Long.BYTES * i);
 
@@ -150,7 +138,7 @@ public class FileChannelTable implements Table {
     @NotNull
     private ByteBuffer keyAt(final int i) {
         assert 0 <= i && i < rows;
-        try (FileChannel fc = openReadFileChannel()) {
+        try (final FileChannel fc = openReadFileChannel()) {
 
             ByteBuffer buffer;
             assert fc != null;
@@ -175,7 +163,7 @@ public class FileChannelTable implements Table {
 
     private Cell cellAt(final int i) {
         assert 0 <= i && i < rows;
-        try (FileChannel fc = openReadFileChannel()) {
+        try (final FileChannel fc = openReadFileChannel()) {
             ByteBuffer buffer;
             assert fc != null;
             long offset = getOffset(fc, i);
@@ -237,6 +225,16 @@ public class FileChannelTable implements Table {
         return left;
     }
 
+    static int getGenerationByName(final String name) {
+        int index = name.lastIndexOf(".");
+        final String prePointName = name.substring(0, index);
+        index = prePointName.length();
+        while (index > 0 && Character.isDigit(prePointName.charAt(index - 1))) {
+            index--;
+        }
+        return Integer.parseInt(prePointName.substring(index));
+    }
+
     @Override
     public long sizeInBytes() {
         return 0;
@@ -265,16 +263,16 @@ public class FileChannelTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        throw new UnsupportedOperationException("FileTable has not access to update!");
+        throw new UnsupportedOperationException(UNSUPPORTED_EXCEPTION_MESSAGE);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) {
-        throw new UnsupportedOperationException("FileTable has not access to update!");
+        throw new UnsupportedOperationException(UNSUPPORTED_EXCEPTION_MESSAGE);
     }
 
     @Override
     public void clear() {
-        throw new UnsupportedOperationException("FileTable has not access to update!");
+        throw new UnsupportedOperationException(UNSUPPORTED_EXCEPTION_MESSAGE);
     }
 }
