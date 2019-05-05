@@ -2,7 +2,11 @@ package ru.mail.polis.persistence;
 
 import java.nio.ByteBuffer;
 
-public class Bytes {
+public abstract class Bytes {
+
+    private Bytes() {
+
+    }
 
     public static ByteBuffer fromInt(final int value) {
         final ByteBuffer result = ByteBuffer.allocate(Integer.BYTES);

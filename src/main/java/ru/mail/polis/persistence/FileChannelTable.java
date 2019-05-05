@@ -23,14 +23,13 @@ public class FileChannelTable implements Table {
     private final File file;
 
     /**
-     * Sorted String Table, which use FileChannel for Read_and_Write operations
-     *
+     *Sorted String Table, which use FileChannel for Read_and_Write operations
      * @param file of this table
      * @throws IOException when file is't exist
      */
-    public FileChannelTable(File file) throws IOException {
+    public FileChannelTable(final File file) throws IOException {
         this.file = file;
-        try (final FileChannel fc = openReadFileChannel()) {
+        try (FileChannel fc = openReadFileChannel()) {
             //Rows
             final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
             assert fc != null;
@@ -43,7 +42,9 @@ public class FileChannelTable implements Table {
     }
 
     static void write(final Iterator<Cell> cells, final File to) throws IOException {
-        try (final FileChannel fc = FileChannel.open(to.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+        try (FileChannel fc = FileChannel.open(to.toPath(),
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE)) {
             final List<Long> offsets = new ArrayList<>();
             long offset = 0;
             while (cells.hasNext()) {
@@ -82,7 +83,7 @@ public class FileChannelTable implements Table {
             }
 
             // Offsets
-            for (long anOffset : offsets) {
+            for (final long anOffset : offsets) {
                 fc.write(Bytes.fromLong(anOffset));
             }
 
@@ -92,7 +93,7 @@ public class FileChannelTable implements Table {
     }
 
     /**
-     * Merge list of SSTables
+     *Merge list of SSTables
      *
      * @param tables list of SSTables
      * @return MergedIterator with latest versions of key-value
@@ -138,7 +139,7 @@ public class FileChannelTable implements Table {
     @NotNull
     private ByteBuffer keyAt(final int i) {
         assert 0 <= i && i < rows;
-        try (final FileChannel fc = openReadFileChannel()) {
+        try (FileChannel fc = openReadFileChannel()) {
 
             ByteBuffer buffer;
             assert fc != null;
@@ -163,7 +164,7 @@ public class FileChannelTable implements Table {
 
     private Cell cellAt(final int i) {
         assert 0 <= i && i < rows;
-        try (final FileChannel fc = openReadFileChannel()) {
+        try (FileChannel fc = openReadFileChannel()) {
             ByteBuffer buffer;
             assert fc != null;
             long offset = getOffset(fc, i);
@@ -226,7 +227,7 @@ public class FileChannelTable implements Table {
     }
 
     static int getGenerationByName(final String name) {
-        int index = name.lastIndexOf(".");
+        int index = name.lastIndexOf('.');
         final String prePointName = name.substring(0, index);
         index = prePointName.length();
         while (index > 0 && Character.isDigit(prePointName.charAt(index - 1))) {
@@ -242,7 +243,7 @@ public class FileChannelTable implements Table {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return new Iterator<>() {
             int next = position(from);
 

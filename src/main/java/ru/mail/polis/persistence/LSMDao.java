@@ -25,14 +25,14 @@ public class LSMDao implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
 
-    private Table memTable = new MemTable();
+    private final Table memTable = new MemTable();
     private final long flushThreshold;
     private final File base;
-    private int generation;
+    private int currentGeneration = -1;
     private List<FileChannelTable> fileTable1s;
 
     /**
-     * NoSql Dao
+     *NoSql Dao
      *
      * @param base           directory of DB
      * @param flushThreshold maxsize of @memTable
@@ -50,18 +50,18 @@ public class LSMDao implements DAO {
                 .filter(path -> path.getFileName().toString().endsWith(SUFFIX))) {
             final List<Path> files = stream.collect(Collectors.toList());
             fileTable1s = new ArrayList<>(files.size());
-            generation = -1;
+            currentGeneration = -1;
             files.forEach(path -> {
                 final File file = path.toFile();
                 try {
                     final FileChannelTable fileChannelTable = new FileChannelTable(file);
                     fileTable1s.add(fileChannelTable);
-                    generation = Math.max(generation, FileChannelTable.getGenerationByName(file.getName()));
+                    currentGeneration = Math.max(currentGeneration, FileChannelTable.getGenerationByName(file.getName()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
-            generation++;
+            currentGeneration++;
         }
     }
 
@@ -102,11 +102,11 @@ public class LSMDao implements DAO {
     }
 
     private void flush() throws IOException {
-        flush(memTable.iterator(ByteBuffer.allocate(0)), generation++);
+        flush(memTable.iterator(ByteBuffer.allocate(0)), currentGeneration++);
         memTable.clear();
     }
 
-    private void flush(final Iterator<Cell> iterator, int generation) throws IOException {
+    private void flush(final Iterator<Cell> iterator, final int generation) throws IOException {
         final File tmp = new File(base, TABLE_NAME + generation + TEMP);
         FileChannelTable.write(iterator, tmp);
         final File dest = new File(base, TABLE_NAME + generation + SUFFIX);
@@ -118,14 +118,14 @@ public class LSMDao implements DAO {
         memTable.remove(key);
     }
 
-    private void mergeTables(int from, int to) throws IOException {
+    private void mergeTables(final int from, final int to) throws IOException {
         final List<FileChannelTable> mergeFiles = fileTable1s.subList(from, to);
         fileTable1s = fileTable1s.subList(0, from);
         final Iterator<Cell> mergeIterator = FileChannelTable.merge(mergeFiles);
         int generation = -1;
         for (final FileChannelTable table : mergeFiles) {
             final File file = table.getFile();
-            String name = file.getName();
+            final String name = file.getName();
             generation = Math.max(generation, FileChannelTable.getGenerationByName(name));
         }
 
