@@ -5,11 +5,11 @@ import java.util.BitSet;
 
 import org.jetbrains.annotations.NotNull;
 
-public class BloomFilter {
+public final class BloomFilter {
+    private static final int[] PRIMES = new int[]{29, 31, 37, 43, 47, 113, 211, 61, 89};
+
     private BloomFilter() {
     }
-
-    private static final int[] PRIMES = new int[]{29, 31, 37, 43, 47, 113, 211, 61, 89};
 
     public static void setKeyToFilter(final BitSet bitSet, final ByteBuffer key) {
         bitSet.or(myHashFunction(key));
@@ -26,7 +26,7 @@ public class BloomFilter {
         final BitSet bitSet = new BitSet();
         int bit = 0;
 
-        for (int prime : PRIMES) {
+        for (final int prime : PRIMES) {
             int hashCode = 1;
             final int p = key.position();
             for (int i = key.limit() - 1; i >= p; i--) {
@@ -43,6 +43,13 @@ public class BloomFilter {
         return bitSet;
     }
 
+    /**
+     * check this key in BloomFilter.
+     *
+     * @param bloomFilter - BitSet of key in table.
+     * @param key         ByteBuffer.
+     * @return false, if bloomFilter has't at least one bit of the key.
+     */
     public static boolean canContains(final BitSet bloomFilter, final ByteBuffer key) {
         final BitSet hashKey = myHashFunction(key);
         hashKey.or(bloomFilter);

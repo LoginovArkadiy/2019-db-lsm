@@ -21,7 +21,6 @@ import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.Iterators;
 
-import ch.qos.logback.core.joran.conditional.ThenAction;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
 import ru.mail.polis.Record;
@@ -118,7 +117,7 @@ public class LSMDao implements DAO {
             final BitSet bloomFilter)
             throws IOException {
         final File tmp = new File(base, generation + TABLE_NAME + TEMP);
-        FileChannelTable.write(iterator, tmp, bloomFilter);
+        Table.write(iterator, tmp, bloomFilter);
         final File dest = new File(base, generation + TABLE_NAME + SUFFIX);
         Files.move(tmp.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
         fileTables.add(new FileChannelTable(dest));

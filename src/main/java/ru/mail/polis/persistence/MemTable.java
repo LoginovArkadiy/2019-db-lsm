@@ -1,8 +1,14 @@
 package ru.mail.polis.persistence;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
@@ -59,7 +65,7 @@ public class MemTable implements Table {
 
     @Override
     public Cell get(@NotNull final ByteBuffer key) {
-        if (!canContains(key)) {
+        if (!BloomFilter.canContains(bloomFilter, key)) {
             return null;
         }
         final Value value = map.get(key);
@@ -81,9 +87,5 @@ public class MemTable implements Table {
         sizeInBytes = 0;
     }
 
-    private boolean canContains(final ByteBuffer key) {
-        final BitSet hashKey = BloomFilter.myHashFunction(key);
-        hashKey.or(bloomFilter);
-        return bloomFilter.equals(hashKey);
-    }
+
 }
