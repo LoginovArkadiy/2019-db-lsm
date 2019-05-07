@@ -299,6 +299,19 @@ public class FileChannelTable implements Table {
     }
 
     @Override
+    public Cell get(@NotNull ByteBuffer key) {
+        int position = position(key);
+        if (position < 0 || position >= rows) {
+            return null;
+        }
+        final Cell cell = cellAt(position);
+        if (cell == null || !cell.getKey().equals(key)) {
+            return null;
+        }
+        return cell;
+    }
+
+    @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException(UNSUPPORTED_EXCEPTION_MESSAGE);
     }

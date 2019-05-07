@@ -54,6 +54,15 @@ public class MemTable implements Table {
     }
 
     @Override
+    public Cell get(@NotNull ByteBuffer key) {
+        final Value value = map.get(key);
+        if (value == null) {
+            return null;
+        }
+        return new Cell(key, value);
+    }
+
+    @Override
     public void clear() {
         map.clear();
         sizeInBytes = 0;

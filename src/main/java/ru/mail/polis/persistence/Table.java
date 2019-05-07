@@ -19,4 +19,6 @@ public interface Table {
     void remove(@NotNull ByteBuffer key) throws IOException;
 
     void clear() throws IOException;
+
+    Cell get(@NotNull ByteBuffer key) throws IOException;
 }
