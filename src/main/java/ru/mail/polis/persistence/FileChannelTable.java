@@ -21,6 +21,7 @@ import ru.mail.polis.Iters;
 public class FileChannelTable implements Table {
     private static final String UNSUPPORTED_EXCEPTION_MESSAGE = "FileTable has not access to update!";
     private final int rows;
+    private final long beginOffsets;
     private final File file;
     private final BitSet bloomFilter;
     private final int bloomFilterSize;
@@ -34,23 +35,29 @@ public class FileChannelTable implements Table {
     public FileChannelTable(final File file) throws IOException {
         this.file = file;
         try (FileChannel fc = openReadFileChannel()) {
-            // Rows
             assert fc != null;
-            final long rowsValue = readLong(fc, fc.size() - Long.BYTES);
+
+            // Rows
+            long offset = fc.size() - Long.BYTES;
+            final long rowsValue = readLong(fc, offset);
             assert rowsValue <= Integer.MAX_VALUE;
             this.rows = (int) rowsValue;
 
-            final int bufferSize = readInt(fc, fc.size() - Long.BYTES - Integer.BYTES);
-            final IntBuffer bloomFilterBuffer = readBuffer(fc,
-                    fc.size() - Long.BYTES - Integer.BYTES - bufferSize * Integer.BYTES,
-                    bufferSize * Integer.BYTES).asIntBuffer();
+            // BloomFilter
+            offset -= Integer.BYTES;
+            final int bufferSize = readInt(fc, offset);
+            offset -= bufferSize * Integer.BYTES;
+            final IntBuffer bloomFilterBuffer = readBuffer(fc, offset, bufferSize * Integer.BYTES).asIntBuffer();
             bloomFilter = new BitSet();
             int size = 0;
-            for (int offset = 0; offset < bloomFilterBuffer.limit(); offset++) {
-                bloomFilter.set(bloomFilterBuffer.get(offset));
+            for (int index = 0; index < bloomFilterBuffer.limit(); index++) {
+                bloomFilter.set(bloomFilterBuffer.get(index));
                 size++;
             }
             this.bloomFilterSize = size;
+
+            // begin offset
+            this.beginOffsets = offset - Long.BYTES * rows;
         }
     }
 
@@ -124,10 +131,7 @@ public class FileChannelTable implements Table {
     private long getOffset(final FileChannel fc, final int i) {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Long.BYTES);
         try {
-            fc.read(offsetBB, fc.size()
-                    - Long.BYTES // rows
-                    - Integer.BYTES - bloomFilterSize * Integer.BYTES // BloomFilter
-                    - Long.BYTES * rows + Long.BYTES * i); // position anOffset
+            fc.read(offsetBB, beginOffsets + Long.BYTES * i);
 
         } catch (IOException e) {
             e.printStackTrace();
