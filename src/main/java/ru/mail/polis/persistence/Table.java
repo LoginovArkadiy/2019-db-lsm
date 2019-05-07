@@ -7,7 +7,6 @@ import java.util.Iterator;
 import org.jetbrains.annotations.NotNull;
 
 public interface Table {
-
     long sizeInBytes();
 
     @NotNull

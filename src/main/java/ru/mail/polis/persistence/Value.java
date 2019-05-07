@@ -2,6 +2,7 @@ package ru.mail.polis.persistence;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -9,7 +10,6 @@ public final class Value implements Comparable<Value> {
     private final long ts;
     private final ByteBuffer data;
     private static final AtomicInteger nano = new AtomicInteger();
-    private static long preTime;
 
     private Value(final long ts, final ByteBuffer data) {
         assert ts >= 0;
@@ -24,12 +24,7 @@ public final class Value implements Comparable<Value> {
      * @return and go back
      */
     public static Value of(final ByteBuffer data) {
-        final long time = System.currentTimeMillis() * 1_000 + nano.incrementAndGet();
-        if (time - preTime > 1) {
-            nano.set(0);
-        }
-        preTime = time;
-        return new Value(System.currentTimeMillis() * 1_000_000 + nano.incrementAndGet(), data.duplicate());
+        return new Value(getMoment(), data.duplicate());
     }
 
     public static Value of(final long time, final ByteBuffer data) {
@@ -37,7 +32,7 @@ public final class Value implements Comparable<Value> {
     }
 
     static Value tombstone() {
-        return tombstone(System.currentTimeMillis());
+        return tombstone(getMoment());
     }
 
     static Value tombstone(final long time) {
@@ -62,5 +57,13 @@ public final class Value implements Comparable<Value> {
 
     long getTimeStamp() {
         return ts;
+    }
+
+    private static long getMoment() {
+        final long time = System.currentTimeMillis() * 1_000 + nano.incrementAndGet();
+        if (nano.get() > 1000) {
+            nano.set(0);
+        }
+        return time;
     }
 }

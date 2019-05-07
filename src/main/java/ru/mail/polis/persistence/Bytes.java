@@ -3,9 +3,7 @@ package ru.mail.polis.persistence;
 import java.nio.ByteBuffer;
 
 public final class Bytes {
-
     private Bytes() {
-
     }
 
     public static ByteBuffer fromInt(final int value) {

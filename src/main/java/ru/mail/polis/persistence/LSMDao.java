@@ -29,14 +29,14 @@ public class LSMDao implements DAO {
     private final long flushThreshold;
     private final File base;
     private int currentGeneration;
-    private List<FileChannelTable> fileTables;
+    private List<Table> fileTables;
 
     /**
      * NoSql Dao.
      *
      * @param base           directory of DB
      * @param flushThreshold maxsize of @memTable
-     * @throws IOException when base directory is't exist
+     * @throws IOException If an I/O error occurs
      */
     public LSMDao(final File base, final long flushThreshold) throws IOException {
         this.base = base;
@@ -70,7 +70,7 @@ public class LSMDao implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> list = new ArrayList<>(fileTables.size() + 1);
-        for (final FileChannelTable fileChannelTable : fileTables) {
+        for (final Table fileChannelTable : fileTables) {
             list.add(fileChannelTable.iterator(from));
         }
         final Iterator<Cell> memoryIterator = memTable.iterator(from);
@@ -80,22 +80,18 @@ public class LSMDao implements DAO {
         final Iterator<Cell> alive =
                 Iterators.filter(
                         iterator,
-                        cell -> cell == null || cell.getValue() == null || !cell.getValue().isRemoved());
+                        cell -> !cell.getValue().isRemoved());
 
         return Iterators.transform(
                 alive,
-                cell -> {
-                    assert cell != null && cell.getKey() != null;
-                    return Record.of(cell.getKey(), cell.getValue().getData());
-                });
+                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
     private void updateData() throws IOException {
         if (memTable.sizeInBytes() > flushThreshold) {
             flush();
-            readFiles();
             if (fileTables.size() > DANGER_COUNT_FILES) {
-                mergeTables(fileTables.size() - 1, fileTables.size());
+                mergeTables(fileTables.size() / 2, fileTables.size());
             }
         }
     }
@@ -126,14 +122,17 @@ public class LSMDao implements DAO {
     }
 
     private void mergeTables(final int from, final int to) throws IOException {
-        final List<FileChannelTable> mergeFiles = fileTables.subList(from, to);
+        final List<Table> mergeFiles = fileTables.subList(from, to);
         fileTables = fileTables.subList(0, from);
         final Iterator<Cell> mergeIterator = FileChannelTable.merge(mergeFiles);
         int generation = -1;
-        for (final FileChannelTable table : mergeFiles) {
-            final File file = table.getFile();
-            final String name = file.getName();
-            generation = Math.max(generation, FileChannelTable.getGenerationByName(name));
+        for (final Table table : mergeFiles) {
+            if (table instanceof FileChannelTable) {
+                FileChannelTable fileTable = (FileChannelTable) table;
+                final File file = fileTable.getFile();
+                final String name = file.getName();
+                generation = Math.max(generation, FileChannelTable.getGenerationByName(name));
+            }
         }
 
         if (generation >= 0) {
@@ -144,7 +143,7 @@ public class LSMDao implements DAO {
     @Override
     public void close() throws IOException {
         if (fileTables.size() > DANGER_COUNT_FILES) {
-            mergeTables(fileTables.size() - 1, fileTables.size());
+            mergeTables(fileTables.size() / 2, fileTables.size());
         }
         flush();
     }
