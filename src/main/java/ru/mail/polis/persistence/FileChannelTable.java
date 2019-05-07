@@ -24,7 +24,6 @@ public class FileChannelTable implements Table {
     private final long beginOffsets;
     private final File file;
     private final BitSet bloomFilter;
-    private final int bloomFilterSize;
 
     /**
      * Sorted String Table, which use FileChannel for Read_and_Write operations.
@@ -45,16 +44,13 @@ public class FileChannelTable implements Table {
 
             // BloomFilter
             offset -= Integer.BYTES;
-            final int bufferSize = readInt(fc, offset);
-            offset -= bufferSize * Integer.BYTES;
-            final IntBuffer bloomFilterBuffer = readBuffer(fc, offset, bufferSize * Integer.BYTES).asIntBuffer();
+            final int bloomFilterSize = readInt(fc, offset);
+            offset -= bloomFilterSize * Integer.BYTES;
+            final IntBuffer bloomFilterBuffer = readBuffer(fc, offset, bloomFilterSize * Integer.BYTES).asIntBuffer();
             bloomFilter = new BitSet();
-            int size = 0;
             for (int index = 0; index < bloomFilterBuffer.limit(); index++) {
                 bloomFilter.set(bloomFilterBuffer.get(index));
-                size++;
             }
-            this.bloomFilterSize = size;
 
             // begin offset
             this.beginOffsets = offset - Long.BYTES * rows;
