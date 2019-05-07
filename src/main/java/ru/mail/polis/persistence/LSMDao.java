@@ -128,7 +128,7 @@ public class LSMDao implements DAO {
         int generation = -1;
         for (final Table table : mergeFiles) {
             if (table instanceof FileChannelTable) {
-                FileChannelTable fileTable = (FileChannelTable) table;
+                final FileChannelTable fileTable = (FileChannelTable) table;
                 final File file = fileTable.getFile();
                 final String name = file.getName();
                 generation = Math.max(generation, FileChannelTable.getGenerationByName(name));

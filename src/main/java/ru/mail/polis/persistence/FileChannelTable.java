@@ -145,7 +145,7 @@ public class FileChannelTable implements Table {
     }
 
     private int readInt(final FileChannel fc, final long offset) {
-        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        final ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
         try {
             fc.read(buffer, offset);
             return buffer.rewind().getInt();
@@ -156,7 +156,7 @@ public class FileChannelTable implements Table {
     }
 
     private long readLong(final FileChannel fc, final long offset) {
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
         try {
             fc.read(buffer, offset);
             return buffer.rewind().getLong();
