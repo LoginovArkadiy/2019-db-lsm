@@ -58,7 +58,7 @@ public class MemTable implements Table {
     }
 
     @Override
-    public Cell get(@NotNull ByteBuffer key) {
+    public Cell get(@NotNull final ByteBuffer key) {
         if (!canContains(key)) {
             return null;
         }

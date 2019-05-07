@@ -205,10 +205,8 @@ public class FileChannelTable implements Table {
         try {
             fc.read(offsetBB, fc.size()
                     - Long.BYTES // rows
-                    - Integer.BYTES // bf size
-                    - bloomFilterSize * Integer.BYTES // bf
-                    - Long.BYTES * rows // offsets
-                    + Long.BYTES * i); // position anOffset
+                    - Integer.BYTES - bloomFilterSize * Integer.BYTES // BloomFilter
+                    - Long.BYTES * rows + Long.BYTES * i); // position anOffset
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -324,26 +322,21 @@ public class FileChannelTable implements Table {
     }
 
     @Override
-    public Cell get(@NotNull ByteBuffer key) {
-        if (!canContains(key)) {
+    public Cell get(@NotNull final ByteBuffer key) {
+        if (!BloomFilter.canContains(bloomFilter, key)) {
             return null;
         }
-        int position = position(key);
+        final int position = position(key);
         if (position < 0 || position >= rows) {
             return null;
         }
         final Cell cell = cellAt(position);
-        if (cell == null || !cell.getKey().equals(key)) {
+        if (!cell.getKey().equals(key)) {
             return null;
         }
         return cell;
     }
 
-    private boolean canContains(final ByteBuffer key) {
-        final BitSet hashKey = BloomFilter.myHashFunction(key);
-        hashKey.or(bloomFilter);
-        return bloomFilter.equals(hashKey);
-    }
 
     @Override
     public BitSet getBloomFilter() {

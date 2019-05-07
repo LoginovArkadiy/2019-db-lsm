@@ -21,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.Iterators;
 
+import ch.qos.logback.core.joran.conditional.ThenAction;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
 import ru.mail.polis.Record;
@@ -129,10 +130,9 @@ public class LSMDao implements DAO {
         updateData();
     }
 
+    @NotNull
     @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
-        final ConcurrentLinkedQueue<Cell> cells = new ConcurrentLinkedQueue<>();
-        final AtomicInteger counter = new AtomicInteger(0);
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
         final Cell memCell = memTable.get(key);
 
         if (memCell != null) {
@@ -142,26 +142,27 @@ public class LSMDao implements DAO {
             return memCell.getValue().getData();
         }
 
-        for (final Table table : fileTables) {
-            new Thread(() -> {
-                try {
-                    final Cell cell = table.get(key);
-                    if (cell != null) {
-                        cells.add(cell);
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    counter.incrementAndGet();
+        final ConcurrentLinkedQueue<Cell> cells = new ConcurrentLinkedQueue<>();
+        final AtomicInteger counter = new AtomicInteger(0);
+        fileTables.forEach(table -> new Thread(() -> {
+            try {
+                final Cell cell = table.get(key);
+
+                if (cell != null) {
+                    cells.add(cell);
                 }
-            }).start();
-        }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                counter.incrementAndGet();
+            }
+        }).start());
 
         while (counter.get() < fileTables.size()) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
             }
         }
 
