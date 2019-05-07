@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -16,7 +17,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.checkerframework.checker.units.qual.C;
 import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.Iterators;
@@ -108,13 +108,16 @@ public class LSMDao implements DAO {
     }
 
     private void flush() throws IOException {
-        flush(memTable.iterator(ByteBuffer.allocate(0)), currentGeneration++);
+        flush(memTable.iterator(ByteBuffer.allocate(0)), currentGeneration++, memTable.getBloomFilter());
         memTable.clear();
     }
 
-    private void flush(final Iterator<Cell> iterator, final int generation) throws IOException {
+    private void flush(final Iterator<Cell> iterator,
+            final int generation,
+            final BitSet bloomFilter)
+            throws IOException {
         final File tmp = new File(base, generation + TABLE_NAME + TEMP);
-        FileChannelTable.write(iterator, tmp);
+        FileChannelTable.write(iterator, tmp, bloomFilter);
         final File dest = new File(base, generation + TABLE_NAME + SUFFIX);
         Files.move(tmp.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
         fileTables.add(new FileChannelTable(dest));
@@ -162,8 +165,12 @@ public class LSMDao implements DAO {
             }
         }
 
+        if (cells.size() == 0) {
+            throw new NoSuchElementException("");
+        }
+
         final Cell cell = Collections.min(cells, Cell.COMPARATOR);
-        if (cells.size() == 0 || cell == null || cell.getValue().isRemoved()) {
+        if (cell == null || cell.getValue().isRemoved()) {
             throw new NoSuchElementException("");
         }
         final Record record = Record.of(cell.getKey(), cell.getValue().getData());
@@ -172,9 +179,9 @@ public class LSMDao implements DAO {
 
     private void mergeTables(final int from, final int to) throws IOException {
         final List<Table> mergeFiles = fileTables.subList(from, to);
-        fileTables = fileTables.subList(0, from);
         final Iterator<Cell> mergeIterator = FileChannelTable.merge(mergeFiles);
         int generation = -1;
+        final BitSet mergeBloomFilter = new BitSet();
         for (final Table table : mergeFiles) {
             if (table instanceof FileChannelTable) {
                 final FileChannelTable fileTable = (FileChannelTable) table;
@@ -182,10 +189,12 @@ public class LSMDao implements DAO {
                 final String name = file.getName();
                 generation = Math.max(generation, FileChannelTable.getGenerationByName(name));
             }
+            mergeBloomFilter.or(table.getBloomFilter());
         }
 
+        fileTables = fileTables.subList(0, from);
         if (generation >= 0) {
-            flush(mergeIterator, generation);
+            flush(mergeIterator, generation, mergeBloomFilter);
         }
     }
 

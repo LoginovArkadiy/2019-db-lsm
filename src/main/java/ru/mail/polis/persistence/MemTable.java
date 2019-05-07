@@ -1,6 +1,7 @@
 package ru.mail.polis.persistence;
 
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -12,6 +13,7 @@ import com.google.common.collect.Iterators;
 public class MemTable implements Table {
     private final NavigableMap<ByteBuffer, Value> map = new TreeMap<>();
     private long sizeInBytes;
+    private final BitSet bloomFilter = new BitSet();
 
     @Override
     public long sizeInBytes() {
@@ -41,6 +43,7 @@ public class MemTable implements Table {
         } else {
             sizeInBytes += value.remaining() - previous.getData().remaining();
         }
+        BloomFilter.setKeyToFilter(bloomFilter, key);
     }
 
     @Override
@@ -51,10 +54,14 @@ public class MemTable implements Table {
         } else if (!previous.isRemoved()) {
             sizeInBytes -= previous.getData().remaining();
         }
+        BloomFilter.setKeyToFilter(bloomFilter, key);
     }
 
     @Override
     public Cell get(@NotNull ByteBuffer key) {
+        if (!canContains(key)) {
+            return null;
+        }
         final Value value = map.get(key);
         if (value == null) {
             return null;
@@ -63,8 +70,20 @@ public class MemTable implements Table {
     }
 
     @Override
+    public BitSet getBloomFilter() {
+        return bloomFilter;
+    }
+
+    @Override
     public void clear() {
         map.clear();
+        bloomFilter.clear();
         sizeInBytes = 0;
+    }
+
+    private boolean canContains(final ByteBuffer key) {
+        final BitSet hashKey = BloomFilter.myHashFunction(key);
+        hashKey.or(bloomFilter);
+        return bloomFilter.equals(hashKey);
     }
 }

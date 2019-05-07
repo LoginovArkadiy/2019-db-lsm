@@ -2,6 +2,7 @@ package ru.mail.polis.persistence;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.Iterator;
 
 import org.jetbrains.annotations.NotNull;
@@ -21,4 +22,6 @@ public interface Table {
     void clear() throws IOException;
 
     Cell get(@NotNull ByteBuffer key) throws IOException;
+
+    BitSet getBloomFilter();
 }

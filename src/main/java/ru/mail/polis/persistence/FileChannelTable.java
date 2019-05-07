@@ -3,9 +3,11 @@ package ru.mail.polis.persistence;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -20,6 +22,8 @@ public class FileChannelTable implements Table {
     private static final String UNSUPPORTED_EXCEPTION_MESSAGE = "FileTable has not access to update!";
     private final int rows;
     private final File file;
+    private final BitSet bloomFilter;
+    private final int bloomFilterSize;
 
     /**
      * Sorted String Table, which use FileChannel for Read_and_Write operations.
@@ -31,13 +35,22 @@ public class FileChannelTable implements Table {
         this.file = file;
         try (FileChannel fc = openReadFileChannel()) {
             // Rows
-            final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
             assert fc != null;
-            fc.read(buffer, fc.size() - Long.BYTES);
-
-            final long rowsValue = buffer.rewind().getLong();
+            final long rowsValue = readLong(fc, fc.size() - Long.BYTES);
             assert rowsValue <= Integer.MAX_VALUE;
             this.rows = (int) rowsValue;
+
+            final int bufferSize = readInt(fc, fc.size() - Long.BYTES - Integer.BYTES);
+            final IntBuffer bloomFilterBuffer = readBuffer(fc,
+                    fc.size() - Long.BYTES - Integer.BYTES - bufferSize * Integer.BYTES,
+                    bufferSize * Integer.BYTES).asIntBuffer();
+            bloomFilter = new BitSet();
+            int size = 0;
+            for (int offset = 0; offset < bloomFilterBuffer.limit(); offset++) {
+                bloomFilter.set(bloomFilterBuffer.get(offset));
+                size++;
+            }
+            this.bloomFilterSize = size;
         }
     }
 
@@ -45,20 +58,22 @@ public class FileChannelTable implements Table {
      * Dump to the file in directory.
      * List of Cells
      * -Cell
-     * keySize - int.
+     * keySize - Integer
      * key - ByteBuffer sizeOf(key) = keySize.
-     * Timestamp - time of last update.
+     * Timestamp - time of last update Long
      * if timestamp is positive then next
-     * valueSize - int
+     * valueSize - Integer
      * value - ByteBuffer sizeOf(value) = valueSize.
-     * -offsets of each row.
-     * -count rows
+     * -offsets LongBuffer
+     * -BloomFilter IntBuffer
+     * -BloomFilterSize Integer
+     * -count rows Long
      *
      * @param cells iterator of data
      * @param to    directory
      * @throws IOException If an I/O error occurs
      */
-    static void write(final Iterator<Cell> cells, final File to) throws IOException {
+    static void write(final Iterator<Cell> cells, final File to, final BitSet bloomFilter) throws IOException {
         try (FileChannel fc = FileChannel.open(to.toPath(),
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE)) {
@@ -104,6 +119,14 @@ public class FileChannelTable implements Table {
             for (final long anOffset : offsets) {
                 fc.write(Bytes.fromLong(anOffset));
             }
+
+            // BloomFilter
+            int size = 0;
+            for (int bit = bloomFilter.nextSetBit(0); bit >= 0; bit = bloomFilter.nextSetBit(bit + 1)) {
+                fc.write(Bytes.fromInt(bit));
+                size++;
+            }
+            fc.write(Bytes.fromInt(size));
 
             // Rows
             fc.write(Bytes.fromLong(offsets.size()));
@@ -181,9 +204,11 @@ public class FileChannelTable implements Table {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Long.BYTES);
         try {
             fc.read(offsetBB, fc.size()
-                    - Long.BYTES
-                    - Long.BYTES * rows
-                    + Long.BYTES * i);
+                    - Long.BYTES // rows
+                    - Integer.BYTES // bf size
+                    - bloomFilterSize * Integer.BYTES // bf
+                    - Long.BYTES * rows // offsets
+                    + Long.BYTES * i); // position anOffset
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -300,6 +325,9 @@ public class FileChannelTable implements Table {
 
     @Override
     public Cell get(@NotNull ByteBuffer key) {
+        if (!canContains(key)) {
+            return null;
+        }
         int position = position(key);
         if (position < 0 || position >= rows) {
             return null;
@@ -309,6 +337,17 @@ public class FileChannelTable implements Table {
             return null;
         }
         return cell;
+    }
+
+    private boolean canContains(final ByteBuffer key) {
+        final BitSet hashKey = BloomFilter.myHashFunction(key);
+        hashKey.or(bloomFilter);
+        return bloomFilter.equals(hashKey);
+    }
+
+    @Override
+    public BitSet getBloomFilter() {
+        return bloomFilter;
     }
 
     @Override
