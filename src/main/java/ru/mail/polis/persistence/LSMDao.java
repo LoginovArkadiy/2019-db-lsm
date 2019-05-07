@@ -52,7 +52,10 @@ public class LSMDao implements DAO {
 
     private void readFiles() throws IOException {
         try (Stream<Path> stream = Files.walk(base.toPath(), 1)
-                .filter(path -> path.getFileName().toString().endsWith(SUFFIX))) {
+                .filter(path -> {
+                    final String fileName = path.getFileName().toString();
+                    return fileName.endsWith(SUFFIX) && fileName.contains(TABLE_NAME);
+                })) {
             final List<Path> files = stream.collect(Collectors.toList());
             fileTables = new ArrayList<>(files.size());
             currentGeneration = -1;
@@ -200,9 +203,6 @@ public class LSMDao implements DAO {
 
     @Override
     public void close() throws IOException {
-        if (fileTables.size() > DANGER_COUNT_FILES) {
-            mergeTables(fileTables.size() / 2, fileTables.size());
-        }
         flush();
     }
 }
