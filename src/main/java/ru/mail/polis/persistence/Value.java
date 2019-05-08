@@ -9,6 +9,7 @@ public final class Value implements Comparable<Value> {
     private final long ts;
     private final ByteBuffer data;
     private static final AtomicInteger nano = new AtomicInteger();
+    private static final int FACTOR = 1_000_000;
 
     private Value(final long ts, final ByteBuffer data) {
         assert ts >= 0;
@@ -59,8 +60,8 @@ public final class Value implements Comparable<Value> {
     }
 
     private static long getMoment() {
-        final long time = System.currentTimeMillis() * 1_000 + nano.incrementAndGet();
-        if (nano.get() > 1000) {
+        final long time = System.currentTimeMillis() * FACTOR + nano.incrementAndGet();
+        if (nano.get() > FACTOR) {
             nano.set(0);
         }
         return time;
