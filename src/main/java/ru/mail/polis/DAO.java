@@ -16,14 +16,14 @@
 
 package ru.mail.polis;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage interface.
@@ -70,7 +70,19 @@ public interface DAO extends Closeable {
      * @throws NoSuchElementException if no such record
      */
     @NotNull
-    ByteBuffer get(@NotNull ByteBuffer key) throws IOException;
+    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Record> iter = iterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        final Record next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next.getValue();
+        } else {
+            throw new NoSuchElementException("Not found");
+        }
+    }
 
     /**
      * Inserts or updates value by given key.

@@ -12,8 +12,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -99,7 +97,7 @@ public class LSMDao implements DAO {
         if (memTable.sizeInBytes() > flushThreshold) {
             flush();
             if (fileTables.size() > DANGER_COUNT_FILES) {
-                mergeTables(fileTables.size() / 2, fileTables.size());
+                mergeTables(0, fileTables.size() / 3);
             }
         }
     }
@@ -136,7 +134,6 @@ public class LSMDao implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
         final Cell memCell = memTable.get(key);
-
         if (memCell != null) {
             if (memCell.getValue().isRemoved()) {
                 throw new NoSuchElementException("");
@@ -144,29 +141,18 @@ public class LSMDao implements DAO {
             return memCell.getValue().getData();
         }
 
-        final ConcurrentLinkedQueue<Cell> cells = new ConcurrentLinkedQueue<>();
-        final AtomicInteger counter = new AtomicInteger(0);
-        fileTables.forEach(table -> new Thread(() -> {
+        final List<Cell> cells = new ArrayList<>();
+        fileTables.forEach(table -> {
             try {
                 final Cell cell = table.get(key);
-
                 if (cell != null) {
                     cells.add(cell);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            } finally {
-                counter.incrementAndGet();
             }
-        }).start());
+        });
 
-        while (counter.get() < fileTables.size()) {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
 
         if (cells.size() == 0) {
             throw new NoSuchElementException("");

@@ -97,12 +97,11 @@ public interface Table {
             }
 
             // BloomFilter
-            int size = 0;
-            for (int bit = bloomFilter.nextSetBit(0); bit >= 0; bit = bloomFilter.nextSetBit(bit + 1)) {
-                fc.write(Bytes.fromInt(bit));
-                size++;
+            final long[] bloomFilterArray = bloomFilter.toLongArray();
+            for (final long bit : bloomFilterArray) {
+                fc.write(Bytes.fromLong(bit));
             }
-            fc.write(Bytes.fromInt(size));
+            fc.write(Bytes.fromInt(bloomFilterArray.length));
 
             // Rows
             fc.write(Bytes.fromLong(offsets.size()));

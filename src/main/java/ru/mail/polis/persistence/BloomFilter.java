@@ -5,13 +5,13 @@ import java.util.BitSet;
 
 import org.jetbrains.annotations.NotNull;
 
-public final class BloomFilter {
+final class BloomFilter {
     private static final int[] PRIMES = new int[]{29, 31, 37, 43, 47, 113, 211, 61, 89};
 
     private BloomFilter() {
     }
 
-    public static void setKeyToFilter(final BitSet bitSet, final ByteBuffer key) {
+    static void setKeyToFilter(final BitSet bitSet, final ByteBuffer key) {
         bitSet.or(myHashFunction(key));
     }
 
@@ -22,7 +22,7 @@ public final class BloomFilter {
      * @param key ByteBuffer.
      * @return BitSet of this key.
      */
-    public static BitSet myHashFunction(@NotNull final ByteBuffer key) {
+    static BitSet myHashFunction(@NotNull final ByteBuffer key) {
         final BitSet bitSet = new BitSet();
         int bit = 0;
 
@@ -50,7 +50,7 @@ public final class BloomFilter {
      * @param key         ByteBuffer.
      * @return false, if bloomFilter has't at least one bit of the key.
      */
-    public static boolean canContains(final BitSet bloomFilter, final ByteBuffer key) {
+    static boolean canContains(final BitSet bloomFilter, final ByteBuffer key) {
         final BitSet hashKey = myHashFunction(key);
         hashKey.or(bloomFilter);
         return bloomFilter.equals(hashKey);

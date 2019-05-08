@@ -80,6 +80,4 @@ public class MemTable implements Table {
         bloomFilter.clear();
         sizeInBytes = 0;
     }
-
-
 }

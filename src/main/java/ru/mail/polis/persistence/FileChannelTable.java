@@ -3,7 +3,6 @@ package ru.mail.polis.persistence;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
@@ -45,12 +44,14 @@ public class FileChannelTable implements Table {
             // BloomFilter
             offset -= Integer.BYTES;
             final int bloomFilterSize = readInt(fc, offset);
-            offset -= bloomFilterSize * Integer.BYTES;
-            final IntBuffer bloomFilterBuffer = readBuffer(fc, offset, bloomFilterSize * Integer.BYTES).asIntBuffer();
-            bloomFilter = new BitSet();
-            for (int index = 0; index < bloomFilterBuffer.limit(); index++) {
-                bloomFilter.set(bloomFilterBuffer.get(index));
+            offset -= bloomFilterSize * Long.BYTES;
+            final ByteBuffer bloomFilterBuffer = readBuffer(fc, offset, bloomFilterSize * Long.BYTES);
+            final long[] bloomFilterArray = new long[bloomFilterSize];
+            for (int i = 0, bloomFilterOffset = 0; i < bloomFilterSize; i++, bloomFilterOffset += Long.BYTES) {
+                long x = bloomFilterBuffer.getLong(bloomFilterOffset);
+                bloomFilterArray[i] = x;
             }
+            bloomFilter = BitSet.valueOf(bloomFilterArray);
 
             // begin offset
             this.beginOffsets = offset - Long.BYTES * rows;
@@ -63,10 +64,7 @@ public class FileChannelTable implements Table {
      * @param tables list of SSTables
      * @return MergedIterator with latest versions of key-value
      */
-    public static Iterator<Cell> merge(final List<Table> tables) {
-        if (tables == null || tables.isEmpty()) {
-            return new ArrayList<Cell>().iterator();
-        }
+    public static Iterator<Cell> merge(@NotNull final List<Table> tables) {
         final List<Iterator<Cell>> list = new ArrayList<>(tables.size());
         for (final Table table : tables) {
             try {
@@ -128,7 +126,6 @@ public class FileChannelTable implements Table {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Long.BYTES);
         try {
             fc.read(offsetBB, beginOffsets + Long.BYTES * i);
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -146,7 +143,6 @@ public class FileChannelTable implements Table {
             // KeySize
             final int keySize = readInt(fc, offset);
             offset += Integer.BYTES;
-
             // Key
             return readBuffer(fc, offset, keySize);
         } catch (IOException e) {
