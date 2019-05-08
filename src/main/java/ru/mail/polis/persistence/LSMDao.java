@@ -154,7 +154,7 @@ public class LSMDao implements DAO {
         });
 
 
-        if (cells.size() == 0) {
+        if (cells.isEmpty()) {
             throw new NoSuchElementException("");
         }
 

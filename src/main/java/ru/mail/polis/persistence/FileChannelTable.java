@@ -48,8 +48,7 @@ public class FileChannelTable implements Table {
             final ByteBuffer bloomFilterBuffer = readBuffer(fc, offset, bloomFilterSize * Long.BYTES);
             final long[] bloomFilterArray = new long[bloomFilterSize];
             for (int i = 0, bloomFilterOffset = 0; i < bloomFilterSize; i++, bloomFilterOffset += Long.BYTES) {
-                long x = bloomFilterBuffer.getLong(bloomFilterOffset);
-                bloomFilterArray[i] = x;
+                bloomFilterArray[i] = bloomFilterBuffer.getLong(bloomFilterOffset);
             }
             bloomFilter = BitSet.valueOf(bloomFilterArray);
 
