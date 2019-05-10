@@ -85,27 +85,27 @@ public final class Client {
                 final ByteBuffer key = ByteBuffer.wrap(tokens[1].getBytes(StandardCharsets.UTF_8));
 
                 switch (cmd) {
-                    case "get":
-                        try {
-                            log.info(from(dao.get(key)));
-                        } catch (NoSuchElementException e) {
-                            log.warn("absent");
-                        } catch (IOException e) {
-                            log.error("Can't extract key: " + key, e);
-                        }
-                        break;
+                case "get":
+                    try {
+                        log.info(from(dao.get(key)));
+                    } catch (NoSuchElementException e) {
+                        log.warn("absent");
+                    } catch (IOException e) {
+                        log.error("Can't extract key: " + key, e);
+                    }
+                    break;
 
-                    case "put":
-                        dao.upsert(key, from(tokens[2]));
-                        break;
+                case "put":
+                    dao.upsert(key, from(tokens[2]));
+                    break;
 
-                    case "remove":
-                        dao.remove(key);
-                        break;
+                case "remove":
+                    dao.remove(key);
+                    break;
 
-                    default:
-                        log.error("Unsupported command: {}", cmd);
-                        break; // For PMD
+                default:
+                    log.error("Unsupported command: {}", cmd);
+                    break; // For PMD
                 }
             }
         } finally {

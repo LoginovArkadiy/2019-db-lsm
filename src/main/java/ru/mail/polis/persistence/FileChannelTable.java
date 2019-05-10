@@ -72,7 +72,7 @@ public class FileChannelTable implements Table {
                 e.printStackTrace();
             }
         }
-        return Iters.collapseEquals(Iterators.mergeSorted(list, Cell.COMPARATOR));
+        return Iters.collapseEquals(Iterators.mergeSorted(list, Cell.COMPARATOR), Cell::getKey);
     }
 
     public File getFile() {

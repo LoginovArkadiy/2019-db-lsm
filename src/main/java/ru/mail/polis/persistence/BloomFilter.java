@@ -6,7 +6,7 @@ import java.util.BitSet;
 import org.jetbrains.annotations.NotNull;
 
 final class BloomFilter {
-    private static final int[] PRIMES = new int[]{29, 31, 37, 43, 47, 113, 211, 61, 89};
+    private static final int[] PRIMES = new int[]{29, 31, 37, 43, 47, 113, 211, 61, 89, 91, 87, 73, 13};
 
     private BloomFilter() {
     }

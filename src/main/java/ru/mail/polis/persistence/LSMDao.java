@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -81,7 +80,8 @@ public class LSMDao implements DAO {
         }
         final Iterator<Cell> memoryIterator = memTable.iterator(from);
         list.add(memoryIterator);
-        final Iterator<Cell> iterator = Iters.collapseEquals(Iterators.mergeSorted(list, Cell.COMPARATOR));
+        final Iterator<Cell> iterator = Iters.collapseEquals(Iterators.mergeSorted(list, Cell.COMPARATOR),
+                Cell::getKey);
 
         final Iterator<Cell> alive =
                 Iterators.filter(
@@ -97,7 +97,7 @@ public class LSMDao implements DAO {
         if (memTable.sizeInBytes() > flushThreshold) {
             flush();
             if (fileTables.size() > DANGER_COUNT_FILES) {
-                mergeTables(0, fileTables.size() / 3);
+                mergeTables(0, fileTables.size() / 2);
             }
         }
     }
@@ -109,7 +109,7 @@ public class LSMDao implements DAO {
     }
 
     private void flush() throws IOException {
-        flush(memTable.iterator(ByteBuffer.allocate(0)), currentGeneration++, memTable.getBloomFilter());
+        flush(memTable.iterator(ByteBuffer.allocate(0)), ++currentGeneration, memTable.getBloomFilter());
         memTable.clear();
     }
 
@@ -133,62 +133,59 @@ public class LSMDao implements DAO {
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
-        final Cell memCell = memTable.get(key);
-        if (memCell != null) {
-            if (memCell.getValue().isRemoved()) {
-                throw new NoSuchElementException("");
+        Cell actualCell = memTable.get(key);
+        for (final Table table : fileTables) {
+            final Cell cell = table.get(key);
+            if (cell == null) {
+                continue;
             }
-            return memCell.getValue().getData();
+            if (actualCell == null || Cell.COMPARATOR.compare(cell, actualCell) < 0) {
+                actualCell = cell;
+            }
         }
-
-        final List<Cell> cells = new ArrayList<>();
-        fileTables.forEach(table -> {
-            try {
-                final Cell cell = table.get(key);
-                if (cell != null) {
-                    cells.add(cell);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-
-
-        if (cells.isEmpty()) {
+        if (actualCell == null || actualCell.getValue().isRemoved()) {
             throw new NoSuchElementException("");
         }
-
-        final Cell cell = Collections.min(cells, Cell.COMPARATOR);
-        if (cell == null || cell.getValue().isRemoved()) {
-            throw new NoSuchElementException("");
-        }
-        final Record record = Record.of(cell.getKey(), cell.getValue().getData());
+        final Record record = Record.of(actualCell.getKey(), actualCell.getValue().getData());
         return record.getValue();
     }
 
+    /**
+     * merge tables.
+     *
+     * @param from inclusive
+     * @param to   exclusive
+     * @throws IOException
+     */
     private void mergeTables(final int from, final int to) throws IOException {
-        final List<Table> mergeFiles = fileTables.subList(from, to);
+        final List<Table> mergeFiles = new ArrayList<>(fileTables.subList(from, to));
         final Iterator<Cell> mergeIterator = FileChannelTable.merge(mergeFiles);
-        int generation = -1;
         final BitSet mergeBloomFilter = new BitSet();
         for (final Table table : mergeFiles) {
-            if (table instanceof FileChannelTable) {
-                final FileChannelTable fileTable = (FileChannelTable) table;
-                final File file = fileTable.getFile();
-                final String name = file.getName();
-                generation = Math.max(generation, FileChannelTable.getGenerationByName(name));
-            }
             mergeBloomFilter.or(table.getBloomFilter());
         }
 
-        fileTables = fileTables.subList(0, from);
-        if (generation >= 0) {
-            flush(mergeIterator, generation, mergeBloomFilter);
+        final List<Table> rightTables = new ArrayList<>(fileTables.subList(to, fileTables.size()));
+        fileTables = new ArrayList<>(fileTables.subList(0, from));
+        fileTables.addAll(rightTables);
+
+
+        flush(mergeIterator, ++currentGeneration, mergeBloomFilter);
+        for (final Table table : mergeFiles) {
+            if (table instanceof FileChannelTable) {
+                final FileChannelTable fileTable = (FileChannelTable) table;
+                Files.delete(fileTable.getFile().toPath());
+            }
         }
     }
 
     @Override
     public void close() throws IOException {
         flush();
+    }
+
+    @Override
+    public void compact() throws IOException {
+        mergeTables(0, fileTables.size());
     }
 }
