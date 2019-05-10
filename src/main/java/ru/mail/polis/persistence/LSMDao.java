@@ -155,7 +155,7 @@ public class LSMDao implements DAO {
      *
      * @param from inclusive
      * @param to   exclusive
-     * @throws IOException
+     * @throws IOException If an I/O error occurs
      */
     private void mergeTables(final int from, final int to) throws IOException {
         final List<Table> mergeFiles = new ArrayList<>(fileTables.subList(from, to));
