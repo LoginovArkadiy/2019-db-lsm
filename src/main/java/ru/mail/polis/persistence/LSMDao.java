@@ -169,7 +169,6 @@ public class LSMDao implements DAO {
         fileTables = new ArrayList<>(fileTables.subList(0, from));
         fileTables.addAll(rightTables);
 
-
         flush(mergeIterator, ++currentGeneration, mergeBloomFilter);
         for (final Table table : mergeFiles) {
             if (table instanceof FileChannelTable) {
@@ -181,7 +180,9 @@ public class LSMDao implements DAO {
 
     @Override
     public void close() throws IOException {
-        flush();
+        if (memTable.sizeInBytes() > 0) {
+            flush();
+        }
     }
 
     @Override
