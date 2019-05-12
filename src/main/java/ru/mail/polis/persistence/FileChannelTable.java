@@ -44,7 +44,7 @@ public class FileChannelTable implements Table {
             // BloomFilter
             offset -= Integer.BYTES;
             final int bloomFilterSize = readInt(fc, offset);
-            offset -= bloomFilterSize * Long.BYTES;
+            offset -= (long) bloomFilterSize * Long.BYTES;
             final ByteBuffer bloomFilterBuffer = readBuffer(fc, offset, bloomFilterSize * Long.BYTES);
             final long[] bloomFilterArray = new long[bloomFilterSize];
             for (int i = 0, bloomFilterOffset = 0; i < bloomFilterSize; i++, bloomFilterOffset += Long.BYTES) {
@@ -53,7 +53,7 @@ public class FileChannelTable implements Table {
             bloomFilter = BitSet.valueOf(bloomFilterArray);
 
             // begin offset
-            this.beginOffsets = offset - Long.BYTES * rows;
+            this.beginOffsets = offset - (long) Long.BYTES * rows;
         }
     }
 
@@ -124,7 +124,7 @@ public class FileChannelTable implements Table {
     private long getOffset(final FileChannel fc, final int i) {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Long.BYTES);
         try {
-            fc.read(offsetBB, beginOffsets + Long.BYTES * i);
+            fc.read(offsetBB, beginOffsets + (long) Long.BYTES * i);
         } catch (IOException e) {
             e.printStackTrace();
         }
