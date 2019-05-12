@@ -61,7 +61,6 @@ class CompactionTest extends TestBase {
         }
 
         // Check the contents
-        long size = 0;
         try (DAO dao = DAOFactory.create(data)) {
             for (final ByteBuffer key : keys) {
                 assertEquals(join(key, value), dao.get(key));
@@ -69,7 +68,6 @@ class CompactionTest extends TestBase {
 
             // Compact
             dao.compact();
-            size = Files.directorySize(data);
             // Check the contents
             for (final ByteBuffer key : keys) {
                 assertEquals(join(key, value), dao.get(key));
@@ -77,7 +75,7 @@ class CompactionTest extends TestBase {
         }
 
         // Check store size
-//        final long size = Files.directorySize(data);
+        final long size = Files.directorySize(data);
         final long minSize = keyCount * (KEY_LENGTH + KEY_LENGTH + valueSize);
 
         // Heuristic
